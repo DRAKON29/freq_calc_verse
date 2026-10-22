@@ -1,5 +1,5 @@
 {
-  "title": "Preview | Giga Studio",
-  "description": "Next.js 16 template with TypeScript, shadcn/ui, and Tailwind CSS",
+  "title": "Калькулятор радиотрассы",
+  "description": "Расчёт потерь радиосигнала с учётом частоты, высоты антенн и рельефа между двумя точками",
   "url": ""
 }
