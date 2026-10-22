@@ -4,8 +4,14 @@ import * as React from "react";
 import { RadioTower } from "lucide-react";
 
 import { NumberInput } from "@/components/rf/number-input";
+import {
+  FrequencyCompareCard,
+  FrequencyListEditor,
+  type FrequencyCompareRow,
+} from "@/components/rf/frequency-compare";
 import { ProfileChart } from "@/components/rf/profile-chart";
 import { ResultsPanel } from "@/components/rf/results-panel";
+import { TerrainUpload } from "@/components/rf/terrain-upload";
 import {
   TERRAIN_PRESETS,
   TerrainEditor,
@@ -37,9 +43,14 @@ import {
   calculateLink,
   wavelengthM,
   type LinkConfig,
+  type TerrainPoint,
 } from "@/lib/propagation";
 
 const FREQUENCY_PRESETS = [144, 433, 868, 1800, 2400, 5800];
+
+const DEFAULT_FREQ_LIST = [433, 868, 2400];
+/** Максимум точек, показываемых в таблице редактора (полный профиль учитывается в расчёте) */
+const EDITOR_MAX_POINTS = 32;
 
 const K_OPTIONS = [
   { value: "0.67", label: "k = 2/3 — субрефракция", k: 2 / 3 },
@@ -96,6 +107,7 @@ function Field({
 export function PropagationCalculator() {
   const [config, setConfig] = React.useState<LinkConfig>(DEFAULT_CONFIG);
   const [terrain, setTerrain] = React.useState<TerrainPointUI[]>(INITIAL_TERRAIN);
+  const [freqList, setFreqList] = React.useState<number[]>(DEFAULT_FREQ_LIST);
 
   const result = React.useMemo(
     () =>
@@ -105,6 +117,44 @@ export function PropagationCalculator() {
       ),
     [config, terrain]
   );
+
+  const terrainPoints = React.useMemo(
+    () => terrain.map(({ d, h }) => ({ d, h }) as TerrainPoint),
+    [terrain]
+  );
+
+  const compareRows = React.useMemo<FrequencyCompareRow[]>(() => {
+    const unique = [...new Set(freqList)].filter(
+      (f) => Number.isFinite(f) && f > 0
+    );
+    unique.sort((a, b) => a - b);
+    return unique.map((freqMHz) => {
+      const res =
+        freqMHz === config.freqMHz
+          ? result
+          : calculateLink({ ...config, freqMHz }, terrainPoints);
+      if (!res.ok) {
+        return {
+          freqMHz,
+          fsplDb: NaN,
+          diffractionDb: NaN,
+          totalLossDb: NaN,
+          rxLevelDbm: NaN,
+          marginDb: NaN,
+          primary: freqMHz === config.freqMHz,
+        };
+      }
+      return {
+        freqMHz,
+        fsplDb: res.fsplDb,
+        diffractionDb: res.diffractionDb,
+        totalLossDb: res.totalLossDb,
+        rxLevelDbm: res.rxLevelDbm,
+        marginDb: res.marginDb,
+        primary: freqMHz === config.freqMHz,
+      };
+    });
+  }, [config, result, terrainPoints, freqList]);
 
   const patchConfig = (patch: Partial<LinkConfig>) =>
     setConfig((c) => ({ ...c, ...patch }));
@@ -156,9 +206,16 @@ export function PropagationCalculator() {
     setTerrain(preset.points.map((p, i) => ({ id: `${preset.id}-${i}`, ...p })));
   }, []);
 
+  /** Профиль, построенный по координатам из файла рельефа */
+  const applyUploadedTerrain = React.useCallback((points: TerrainPoint[]) => {
+    setTerrain(points.map((p) => ({ id: nextPointId(), d: p.d, h: p.h })));
+  }, []);
+
   const distanceKm = result.ok ? result.distanceKm : 0;
   const lambda = config.freqMHz > 0 ? wavelengthM(config.freqMHz) : NaN;
   const txPowerMw = 10 ** (config.txPowerDbm / 10);
+  const editorPoints = terrain.slice(0, EDITOR_MAX_POINTS);
+  const hiddenPoints = Math.max(0, terrain.length - EDITOR_MAX_POINTS);
 
   return (
     <div className="space-y-6">
@@ -310,6 +367,13 @@ export function PropagationCalculator() {
             </CardContent>
           </Card>
 
+          <FrequencyCompareCard rows={compareRows}>
+            <FrequencyListEditor
+              frequencies={freqList}
+              onChange={setFreqList}
+            />
+          </FrequencyCompareCard>
+
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="text-base">Профиль рельефа</CardTitle>
@@ -320,7 +384,8 @@ export function PropagationCalculator() {
             </CardHeader>
             <CardContent>
               <TerrainEditor
-                points={terrain}
+                points={editorPoints}
+                hiddenCount={hiddenPoints}
                 onDistanceChange={(id, d) => updatePoint(id, { d })}
                 onElevationChange={(id, h) => updatePoint(id, { h })}
                 onCommitOrder={commitOrder}
@@ -330,6 +395,8 @@ export function PropagationCalculator() {
               />
             </CardContent>
           </Card>
+
+          <TerrainUpload onTerrain={applyUploadedTerrain} />
         </div>
 
         {/* Правая колонка — график и результат */}

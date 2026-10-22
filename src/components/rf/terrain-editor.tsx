@@ -100,6 +100,8 @@ interface TerrainEditorProps {
   onAdd: () => void;
   onRemove: (id: string) => void;
   onPreset: (presetId: string) => void;
+  /** Точек в полном профиле сверх переданных (профиль из файла) */
+  hiddenCount?: number;
 }
 
 export function TerrainEditor({
@@ -110,6 +112,7 @@ export function TerrainEditor({
   onAdd,
   onRemove,
   onPreset,
+  hiddenCount = 0,
 }: TerrainEditorProps) {
   return (
     <div className="space-y-3">
@@ -220,6 +223,14 @@ export function TerrainEditor({
           Дальность задаётся расстоянием точки ПР.
         </p>
       </div>
+
+      {hiddenCount > 0 && (
+        <p className="text-[11px] leading-tight text-muted-foreground">
+          Показаны первые {points.length} точек из {points.length + hiddenCount} —
+          полный профиль из файла учтён в расчёте. Пресет заменит его вручную
+          заданным рельефом.
+        </p>
+      )}
     </div>
   );
 }

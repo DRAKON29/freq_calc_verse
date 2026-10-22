@@ -203,12 +203,24 @@ export function calculateLink(
   let obstructionCount = 0;
 
   if (blocked.length > 0) {
+    // Доминирующие препятствия: вершины ниже луча, являющиеся локальными
+    // минимумами просвета. Для плотного профиля (матрицы высот) отбрасывает
+    // склоны, оставляя гребни, — иначе один холм посчитался бы десятком клиньев.
+    const dominant: Vertex[] = [];
+    for (let i = 0; i < vertices.length; i++) {
+      const v = vertices[i];
+      if (v.clearance >= 0) continue;
+      const prevC = i > 0 ? vertices[i - 1].clearance : Infinity;
+      const nextC = i < vertices.length - 1 ? vertices[i + 1].clearance : Infinity;
+      if (v.clearance <= prevC && v.clearance <= nextC) dominant.push(v);
+    }
+
     // Метод Эпштейна–Петерсона: каждое препятствие — клин между
     // соседними доминирующими препятствиями (или терминалами).
-    obstructionCount = blocked.length;
+    obstructionCount = dominant.length;
     const anchors = [
       { d: 0, h: txAntM },
-      ...blocked.map((v) => ({ d: v.d, h: v.terrainEff })),
+      ...dominant.map((v) => ({ d: v.d, h: v.terrainEff })),
       { d: distanceKm, h: rxAntM },
     ];
     for (let i = 1; i < anchors.length - 1; i++) {
