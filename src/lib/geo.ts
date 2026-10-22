@@ -278,7 +278,7 @@ export function gaussKrugerForward(
     (N / 6) * cos2B * cosB * (1 - t2 + eta2) * l2 * l +
     (N / 120) * cos4B * cosB * (5 - 18 * t2 + t2 * t2 + 14 * eta2 - 58 * eta2 * t2) * l4 * l;
 
-  return { x, y: (6 * zone + 5) * 1e5 + y };
+  return { x, y: zone * 1e6 + 500_000 + y };
 }
 
 /** Обратное преобразование Гаусса–Крюгера (Красовский): плоские, м → градусы. */
@@ -293,7 +293,7 @@ export function gaussKrugerInverse(
 
   const zone = Math.floor(y / 1e6);
   if (!Number.isInteger(zone) || zone < 1 || zone > 60) return null;
-  const yy = y - (6 * zone + 5) * 1e5; // восточное от осевого меридиана, м
+  const yy = y - zone * 1e6 - 500_000; // восточное от осевого меридиана, м
 
   const Bf = footpointLatitude(x);
   if (Bf === null) return null;
